@@ -1,28 +1,40 @@
-const axios = require('axios')
-const {BookingRepository} = require('../repositories')
-const db = require('../models')
-const {ServerConfig} = require('../config')
-const AppError = require('../utils/errors/app-error')
-const { StatusCodes } = require('http-status-codes')
+const axios = require("axios");
+const { BookingRepository } = require("../repositories");
+const db = require("../models");
+const { ServerConfig } = require("../config");
+const AppError = require("../utils/errors/app-error");
+const { StatusCodes } = require("http-status-codes");
+ const bookingRepository = new BookingRepository();
 
+async function createBooking(data) {
+    const transaction = await db.sequelize.transaction();
+  try {
+    const flight = await axios.get(
+      `${ServerConfig.FLIGHT_SERVICE}/api/v1/flights/${data.flightId}`);
+    if (data.noOfSeats > flight.data.data.totalSeats) {
+      throw new AppError(
+        new AppError("Not enough seats availabe", StatusCodes.BAD_REQUEST)
+      );
 
-async function createBooking(data){
-    return new Promise((resolve , reject) =>{
+    }
+    
+    const totalBillingAmount = data.noOfSeats * flight.data.data.price;
+    const bookingPayload = {...data, totalCost: totalBillingAmount };
+    const booking = await bookingRepository.createBooking(bookingPayload, transaction);
+    
+      await axios.patch(
+      `${ServerConfig.FLIGHT_SERVICE}/api/v1/flights/${data.flightId}/seats`,
+      { seats: data.noOfSeats  }
+    );
 
-        const result = db.sequelize.transaction(async function bookingImpl(t) {
-            
-            const flight = await axios.get(`${ServerConfig.FLIGHT_SERVICE}/api/v1/flights/${data.flightId}`)
-            if(data.noOfSeats > flight.data.data.totalSeats){
-                reject(new AppError("Not enough seats availabe" , StatusCodes.BAD_REQUEST));
-            }
-
-            resolve(true);
-        });
-        
-    } )
-   
+    await transaction.commit(); 
+    return booking;
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
 }
 
-module.exports={
-    createBooking
-}
+module.exports = {
+  createBooking,
+};
