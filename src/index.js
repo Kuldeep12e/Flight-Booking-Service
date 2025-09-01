@@ -1,4 +1,5 @@
 const express = require('express');
+const {Queue} = require('./config')
 
 const { ServerConfig } = require('./config');
 const apiRoutes = require('./routes');
@@ -14,5 +15,6 @@ app.use('/api', apiRoutes);
 app.listen(ServerConfig.PORT, () => {
     console.log(`Successfully started the server on PORT : ${ServerConfig.PORT}`);
     CRON();
+    Queue.connectQueue();
 
 });

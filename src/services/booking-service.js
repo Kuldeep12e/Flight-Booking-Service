@@ -7,6 +7,8 @@ const { StatusCodes } = require("http-status-codes");
  const bookingRepository = new BookingRepository();
  const {ENUMS} = require('../utils/common')
  const {BOOKED} = ENUMS.Booking_Status
+ const {Queue} = require('../config');
+const { text } = require("express");
 
 async function createBooking(data) {
     const transaction = await db.sequelize.transaction();
@@ -30,7 +32,9 @@ async function createBooking(data) {
     );
 
     await transaction.commit(); 
+
     return booking;
+
   } catch (error) {
     await transaction.rollback();
     throw error;
@@ -62,8 +66,15 @@ async function makePayment(data){
       throw new AppError('The user correspond to booking does not match' , StatusCodes.BAD_REQUEST);
     }
     const response = await bookingRepository.update({ status: BOOKED }, data.bookingId, transaction);
-    await transaction.commit();
+     Queue.sendData({
+      subject: 'BOOKING Successful ',
+      recepientEmail: 'kuldeep0105yadav@gmail.com',
+      text: 'Your booking is successful',
+    });
+     await transaction.commit();
     return response;
+
+
   }catch(error){
     await transaction.rollback();
     throw error;
